@@ -1,0 +1,37 @@
+# --- Secrets ---
+.env
+*.env.local
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.venv/
+venv/
+env/
+
+# --- Database (contains real patient/user data) ---
+backend/data/app.db
+backend/data/*.db
+backend/data/*.sqlite3
+
+# --- Uploaded files (patient lab reports, audio, etc.) ---
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/uploads/lab_reports/*
+!backend/uploads/lab_reports/.gitkeep
+backend/temp_audio/*
+!backend/temp_audio/.gitkeep
+
+# --- Whisper model weights (large binary files) ---
+backend/models/whisper/*
+!backend/models/whisper/.gitkeep
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

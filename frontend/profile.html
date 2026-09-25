@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Profile — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+            <div class="shell-title" id="pageTitle">Profile</div>
+            <div class="shell-subtitle" id="pageSubtitle">Your account details</div>
+          </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content" id="content" style="max-width: 720px;">
+        <div class="loading-row">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(null); // any logged-in role
+    if (user) {
+      renderShellNav("profile");
+      loadProfile();
+    }
+
+    const ROLE_LABEL_LOCAL = {
+      admin: "Admin",
+      doctor: "Doctor",
+      lab_staff: "Lab Staff",
+      receptionist: "Receptionist",
+    };
+
+    function initialsFor(name) {
+      return (name || "?")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((s) => s[0].toUpperCase())
+        .join("");
+    }
+
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+
+    async function loadProfile() {
+      const content = document.getElementById("content");
+      try {
+        const me = await apiFetch("/api/auth/me");
+        const canEdit = me.role === "admin";
+        const joined = me.created_at
+          ? new Date(me.created_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
+          : "—";
+
+        content.innerHTML = `
+          <div class="panel">
+            <div class="profile-header">
+              <div class="profile-avatar">${initialsFor(me.full_name)}</div>
+              <div>
+                <div class="profile-name">${esc(me.full_name)}</div>
+                <div class="profile-meta">
+                  <span class="badge badge-${esc(me.role)}">${esc(ROLE_LABEL_LOCAL[me.role] || me.role)}</span>
+                  <span class="badge badge-${esc(me.status)}">${esc(me.status)}</span>
+                  <span>Member since ${joined}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-head-row" style="margin-bottom:2px;border:none;padding-bottom:0;">
+              <div class="panel-head-left"><h2 style="border:none;padding:0;">Account details</h2></div>
+              ${canEdit ? `<button class="btn btn-outline btn-small" id="editBtn">Edit details</button>` : ""}
+            </div>
+
+            <form id="profileForm" class="form-grid" style="margin-top:14px;">
+              <div class="field">
+                <label for="fullName">Full name</label>
+                <input id="fullName" value="${esc(me.full_name)}" disabled />
+              </div>
+              <div class="field">
+                <label for="username">Username</label>
+                <input id="username" value="${esc(me.username)}" disabled />
+              </div>
+              <div class="field">
+                <label for="email">Email</label>
+                <input id="email" type="email" value="${esc(me.email)}" disabled />
+              </div>
+              <div class="field">
+                <label for="phone">Phone</label>
+                <input id="phone" value="${esc(me.phone || "")}" placeholder="Not set" disabled />
+              </div>
+              <div class="field">
+                <label for="role">Role</label>
+                <input id="role" value="${esc(ROLE_LABEL_LOCAL[me.role] || me.role)}" disabled />
+              </div>
+              <div class="field">
+                <label for="status">Account status</label>
+                <input id="status" value="${esc(me.status)}" disabled />
+              </div>
+              <div class="full" id="formActions" style="display:none; gap:10px; justify-content:flex-end;">
+                <button type="button" class="btn btn-outline" id="cancelBtn">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveBtn2">Save changes</button>
+              </div>
+              <div class="field-error full" id="profileError" style="min-height:0;"></div>
+            </form>
+
+            ${
+              canEdit
+                ? `<div class="field-hint" style="margin-top:6px;">As an admin, you can update your own name, email and phone here.</div>`
+                : `<div class="field-hint" style="margin-top:6px;">Contact an administrator to update these details.</div>`
+            }
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h2>Security</h2></div>
+            <div class="empty-state" style="padding:26px 20px;">
+              <div class="empty-state-title">Password changes aren't available here yet</div>
+              <div style="font-size:12.5px;">Ask an administrator if you need your password reset.</div>
+            </div>
+          </div>`;
+
+        if (canEdit) wireEditForm(me.id);
+      } catch (err) {
+        content.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+      }
+    }
+
+    function wireEditForm(userId) {
+      const editBtn = document.getElementById("editBtn");
+      const cancelBtn = document.getElementById("cancelBtn");
+      const formActions = document.getElementById("formActions");
+      const errorEl = document.getElementById("profileError");
+      const editableIds = ["fullName", "email", "phone"];
+
+      editBtn.addEventListener("click", () => {
+        editableIds.forEach((id) => (document.getElementById(id).disabled = false));
+        formActions.style.display = "flex";
+        editBtn.style.display = "none";
+      });
+
+      cancelBtn.addEventListener("click", () => {
+        loadProfile();
+      });
+
+      document.getElementById("profileForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorEl.textContent = "";
+        const saveBtn = document.getElementById("saveBtn2");
+        saveBtn.disabled = true;
+        saveBtn.textContent = "Saving…";
+        try {
+          const updated = await apiFetch(`/api/users/${userId}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              full_name: document.getElementById("fullName").value.trim(),
+              email: document.getElementById("email").value.trim(),
+              phone: document.getElementById("phone").value.trim() || null,
+            }),
+          });
+          Auth.setSession(Auth.getToken(), updated);
+          showToast("Profile updated.", "success");
+          loadProfile();
+        } catch (err) {
+          errorEl.textContent = err.message;
+          saveBtn.disabled = false;
+          saveBtn.textContent = "Save changes";
+        }
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Laboratory Reports — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+            <div class="shell-title">Laboratory Reports</div>
+            <div class="shell-subtitle">All uploaded reports across patients</div>
+          </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content">
+        <div class="panel">
+          <div class="toolbar">
+            <div class="toolbar-field">
+              <label>Status</label>
+              <select id="statusFilter">
+                <option value="">All Statuses</option>
+                <option value="uploaded">Uploaded</option>
+                <option value="extracted">Extracted (needs review)</option>
+                <option value="verified">Verified</option>
+              </select>
+            </div>
+            <div class="toolbar-field">
+              <label>From Date</label>
+              <input type="date" id="fromFilter" />
+            </div>
+            <div class="toolbar-field">
+              <label>To Date</label>
+              <input type="date" id="toFilter" />
+            </div>
+            <div class="search-input-wrap" style="align-self:flex-end;">
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m21 21-4.3-4.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <input class="search-input" id="searchInput" placeholder="Search by file name or patient…" />
+            </div>
+            <button class="btn-reset" id="resetFiltersBtn" style="align-self:flex-end;">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Reset
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>File Name</th><th>Patient</th><th>Status</th><th>Report Date</th><th>Uploaded</th><th class="col-action">Actions</th></tr></thead>
+              <tbody id="reportsBody"><tr><td colspan="6" class="loading-row">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <div class="pagination-info" id="paginationInfo"></div>
+            <button class="page-btn" disabled><svg viewBox="0 0 24 24" fill="none"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn"><svg viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(["admin", "doctor", "lab_staff"]);
+    let patientLookup = {};
+    if (user) {
+      renderShellNav("lab-reports");
+      loadReports();
+      document.getElementById("statusFilter").addEventListener("change", () => loadReports());
+      document.getElementById("fromFilter").addEventListener("change", () => loadReports());
+      document.getElementById("toFilter").addEventListener("change", () => loadReports());
+      let searchTimer;
+      document.getElementById("searchInput").addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadReports(), 250);
+      });
+      document.getElementById("resetFiltersBtn").addEventListener("click", () => {
+        document.getElementById("statusFilter").value = "";
+        document.getElementById("fromFilter").value = "";
+        document.getElementById("toFilter").value = "";
+        document.getElementById("searchInput").value = "";
+        loadReports();
+      });
+    }
+
+    async function loadReports() {
+      const status = document.getElementById("statusFilter").value;
+      const from = document.getElementById("fromFilter").value;
+      const to = document.getElementById("toFilter").value;
+      const q = document.getElementById("searchInput").value.trim().toLowerCase();
+
+      const body = document.getElementById("reportsBody");
+      body.innerHTML = `<tr><td colspan="6" class="loading-row">Loading…</td></tr>`;
+      try {
+        if (!Object.keys(patientLookup).length) {
+          try {
+            const patients = await apiFetch("/api/patients");
+            patients.forEach((p) => (patientLookup[p.id] = p));
+          } catch {
+            /* non-fatal */
+          }
+        }
+
+        const url = status ? `/api/laboratory/reports?status_filter=${status}` : "/api/laboratory/reports";
+        let reports = await apiFetch(url);
+
+        if (from) reports = reports.filter((r) => new Date(r.created_at) >= new Date(from));
+        if (to) reports = reports.filter((r) => new Date(r.created_at) <= new Date(to + "T23:59:59"));
+        if (q) {
+          reports = reports.filter((r) => {
+            const p = patientLookup[r.patient_id];
+            return (
+              r.original_filename.toLowerCase().includes(q) ||
+              (p && p.full_name.toLowerCase().includes(q))
+            );
+          });
+        }
+
+        document.getElementById("paginationInfo").textContent = `Showing 1 to ${reports.length} of ${reports.length} reports`;
+
+        if (!reports.length) {
+          body.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-title">No laboratory reports found</div></div></td></tr>`;
+          return;
+        }
+        body.innerHTML = reports
+          .map((r) => {
+            const p = patientLookup[r.patient_id];
+            return `
+          <tr>
+            <td><strong>${esc(r.original_filename)}</strong></td>
+            <td>${p ? `${esc(p.full_name)}<br><span class="field-hint">${esc(p.patient_code)}</span>` : "—"}</td>
+            <td><span class="badge badge-${esc(r.status)}">${esc(r.status)}</span></td>
+            <td>${esc(r.report_date || "—")}</td>
+            <td>${new Date(r.created_at).toLocaleString()}</td>
+            <td class="col-action">
+              <div class="row-actions">
+                ${
+                  ["admin", "lab_staff"].includes(user.role) && r.status !== "verified"
+                    ? `<a class="icon-btn edit" href="/lab-review.html?report=${r.id}" title="Review">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+                      </a>`
+                    : `<a class="icon-btn view" href="/patient-record.html?id=${r.patient_id}" title="View">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/></svg>
+                      </a>`
+                }
+              </div>
+            </td>
+          </tr>`;
+          })
+          .join("");
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="6"><div class="error-state">${esc(err.message)}</div></td></tr>`;
+      }
+    }
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Patient Record — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+          <div class="shell-title" id="pageTitle">Patient Record</div>
+          <div class="shell-subtitle" id="pageSubtitle">Loading…</div>
+        </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content" id="content">
+        <div class="loading-row">Loading patient record…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(null);
+    const patientId = new URLSearchParams(window.location.search).get("id");
+
+    if (user) {
+      renderShellNav("patients");
+      if (!patientId) {
+        document.getElementById("content").innerHTML = `<div class="error-state">No patient selected.</div>`;
+      } else {
+        loadRecord();
+      }
+    }
+
+    async function loadRecord() {
+      const content = document.getElementById("content");
+      try {
+        const p = await apiFetch(`/api/patients/${patientId}`);
+        document.getElementById("pageTitle").textContent = p.full_name;
+        document.getElementById("pageSubtitle").textContent = `${p.patient_code} · Patient Record`;
+
+        const actionButtons = [];
+        if (["doctor", "admin"].includes(user.role)) {
+          actionButtons.push(`<a class="btn btn-primary" href="/index.html?patient=${p.id}">New Voice Prescription</a>`);
+        }
+        if (["lab_staff", "admin"].includes(user.role)) {
+          actionButtons.push(`<a class="btn btn-outline" href="/lab-upload.html?patient=${p.id}">Upload Lab Report</a>`);
+        }
+        if (["admin", "receptionist"].includes(user.role)) {
+          actionButtons.push(`<button class="btn btn-outline" id="editPatientBtn">Edit Details</button>`);
+        }
+
+        content.innerHTML = `
+          <div class="toolbar" style="justify-content:flex-end;">${actionButtons.join("")}</div>
+          <div class="two-col">
+            <div>
+              <div class="panel">
+                <div class="panel-head"><h2>Laboratory Reports</h2></div>
+                ${
+                  p.lab_reports.length
+                    ? p.lab_reports
+                        .map(
+                          (r) => `
+                    <div class="timeline-item" style="align-items:flex-start;">
+                      <div class="timeline-dot"></div>
+                      <div class="timeline-body" style="width:100%;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                          <strong>${esc(r.original_filename)}</strong>
+                          <span class="badge badge-${esc(r.status)}">${esc(r.status)}</span>
+                        </div>
+                        <div class="timeline-meta">${new Date(r.created_at).toLocaleString()}${r.report_date ? " · Report date: " + esc(r.report_date) : ""}</div>
+                        ${
+                          r.results && r.results.length
+                            ? `<div class="table-wrap" style="margin-top:8px;">
+                                <table class="data-table">
+                                  <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Reference</th><th>Flag</th></tr></thead>
+                                  <tbody>
+                                    ${r.results
+                                      .map(
+                                        (res) => `<tr>
+                                          <td>${esc(res.test_name)}</td>
+                                          <td>${esc(res.result_value || "—")}</td>
+                                          <td>${esc(res.unit || "—")}</td>
+                                          <td>${esc(res.reference_range || "—")}</td>
+                                          <td>${res.flag ? `<span class="badge badge-${esc(res.flag)}">${esc(res.flag)}</span>` : "—"}</td>
+                                        </tr>`
+                                      )
+                                      .join("")}
+                                  </tbody>
+                                </table>
+                              </div>`
+                            : `<div class="field-hint" style="margin-top:6px;">No results extracted yet.</div>`
+                        }
+                        ${
+                          ["lab_staff", "admin"].includes(user.role) && r.status !== "verified"
+                            ? `<a class="link-btn" style="display:inline-block;margin-top:8px;" href="/lab-review.html?report=${r.id}">Review &amp; verify &rarr;</a>`
+                            : ""
+                        }
+                      </div>
+                    </div>`
+                        )
+                        .join("")
+                    : `<div class="empty-state"><div class="empty-state-title">No laboratory reports yet</div></div>`
+                }
+              </div>
+
+              <div class="panel" style="margin-top:18px;">
+                <div class="panel-head"><h2>Prescriptions</h2></div>
+                ${
+                  p.prescriptions.length
+                    ? p.prescriptions
+                        .map(
+                          (rx) => `
+                    <div class="timeline-item" style="align-items:flex-start;">
+                      <div class="timeline-dot"></div>
+                      <div class="timeline-body">
+                        <div><strong>Dr. ${esc(rx.doctor_name || "Unknown")}</strong></div>
+                        <div class="timeline-meta">${new Date(rx.created_at).toLocaleString()}</div>
+                        ${rx.prescription_text ? `<div style="margin-top:6px;">${esc(rx.prescription_text)}</div>` : ""}
+                        ${
+                          rx.items && rx.items.length
+                            ? `<ul style="margin:8px 0 0 18px;padding:0;font-size:13px;">${rx.items
+                                .map(
+                                  (it) =>
+                                    `<li>${esc(it.medicine_name || "")} ${esc(it.strength || "")} — ${esc(it.frequency || "")} ${esc(it.duration || "")}</li>`
+                                )
+                                .join("")}</ul>`
+                            : ""
+                        }
+                      </div>
+                    </div>`
+                        )
+                        .join("")
+                    : `<div class="empty-state"><div class="empty-state-title">No prescriptions yet</div></div>`
+                }
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head"><h2>Personal Information</h2></div>
+              <div class="info-list">
+                <div class="info-row"><span>Patient Code</span><span>${esc(p.patient_code)}</span></div>
+                <div class="info-row"><span>Date of Birth</span><span>${esc(p.date_of_birth || "—")}</span></div>
+                <div class="info-row"><span>Gender</span><span>${esc(p.gender || "—")}</span></div>
+                <div class="info-row"><span>Phone</span><span>${esc(p.phone || "—")}</span></div>
+                <div class="info-row"><span>Address</span><span>${esc(p.address || "—")}</span></div>
+                <div class="info-row"><span>Registered</span><span>${new Date(p.created_at).toLocaleDateString()}</span></div>
+              </div>
+            </div>
+          </div>`;
+
+        const editBtn = document.getElementById("editPatientBtn");
+        if (editBtn) {
+          editBtn.addEventListener("click", () => {
+            window.location.href = `/patients.html`; // full edit flow lives on the patients list modal
+          });
+        }
+      } catch (err) {
+        content.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+      }
+    }
+
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

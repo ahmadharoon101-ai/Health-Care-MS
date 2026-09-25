@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Patients — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+            <div class="shell-title">Patients</div>
+            <div class="shell-subtitle">Central patient record directory</div>
+          </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content">
+        <div class="panel">
+          <div class="toolbar">
+            <div class="search-input-wrap">
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m21 21-4.3-4.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              <input class="search-input" id="searchInput" placeholder="Search by name, patient code, or phone…" />
+            </div>
+            <div class="toolbar-field">
+              <label>Gender</label>
+              <select id="genderFilter">
+                <option value="">All</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="toolbar-field">
+              <label>Registered From</label>
+              <input type="date" id="fromFilter" />
+            </div>
+            <div class="toolbar-field">
+              <label>Registered To</label>
+              <input type="date" id="toFilter" />
+            </div>
+            <button class="btn-reset" id="resetFiltersBtn" style="align-self:flex-end;">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Reset
+            </button>
+            <button class="btn btn-primary" id="registerBtn" hidden style="align-self:flex-end;">+ Add Patient</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr><th>Patient Code</th><th>Name</th><th>DOB</th><th>Gender</th><th>Phone</th><th>Registered</th><th class="col-action">Actions</th></tr>
+              </thead>
+              <tbody id="patientsBody">
+                <tr><td colspan="7" class="loading-row">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination">
+            <div class="pagination-info" id="paginationInfo"></div>
+            <button class="page-btn" id="prevPageBtn"><svg viewBox="0 0 24 24" fill="none"><path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn" id="nextPageBtn"><svg viewBox="0 0 24 24" fill="none"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register / Edit Patient Modal -->
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modalTitle">Register Patient</h3>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <form class="modal-form" id="patientForm">
+        <label>Full Name<input id="pf_full_name" required /></label>
+        <label>Date of Birth<input id="pf_dob" type="date" /></label>
+        <label>Gender
+          <select id="pf_gender">
+            <option value="">Not specified</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>Phone<input id="pf_phone" /></label>
+        <label>Address<input id="pf_address" /></label>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" id="modalCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="modalSubmit">Save Patient</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(null);
+    let editingId = null;
+
+    if (user) {
+      renderShellNav("patients");
+      const canWrite = ["admin", "receptionist"].includes(user.role);
+      if (canWrite) document.getElementById("registerBtn").hidden = false;
+
+      loadPatients();
+
+      let searchTimer;
+      document.getElementById("searchInput").addEventListener("input", (e) => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => loadPatients(e.target.value), 250);
+      });
+      ["genderFilter", "fromFilter", "toFilter"].forEach((id) => {
+        document.getElementById(id).addEventListener("change", () => loadPatients(document.getElementById("searchInput").value));
+      });
+      document.getElementById("resetFiltersBtn").addEventListener("click", () => {
+        document.getElementById("searchInput").value = "";
+        document.getElementById("genderFilter").value = "";
+        document.getElementById("fromFilter").value = "";
+        document.getElementById("toFilter").value = "";
+        loadPatients();
+      });
+
+      document.getElementById("registerBtn").addEventListener("click", () => openModal());
+      document.getElementById("modalClose").addEventListener("click", closeModal);
+      document.getElementById("modalCancel").addEventListener("click", closeModal);
+      document.getElementById("modalBackdrop").addEventListener("click", (e) => {
+        if (e.target.id === "modalBackdrop") closeModal();
+      });
+
+      document.getElementById("patientForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const payload = {
+          full_name: document.getElementById("pf_full_name").value.trim(),
+          date_of_birth: document.getElementById("pf_dob").value || null,
+          gender: document.getElementById("pf_gender").value || null,
+          phone: document.getElementById("pf_phone").value.trim() || null,
+          address: document.getElementById("pf_address").value.trim() || null,
+        };
+        const submitBtn = document.getElementById("modalSubmit");
+        submitBtn.disabled = true;
+        try {
+          if (editingId) {
+            await apiFetch(`/api/patients/${editingId}`, { method: "PUT", body: JSON.stringify(payload) });
+            showToast("Patient updated.", "success");
+          } else {
+            await apiFetch("/api/patients", { method: "POST", body: JSON.stringify(payload) });
+            showToast("Patient registered.", "success");
+          }
+          closeModal();
+          loadPatients(document.getElementById("searchInput").value);
+        } catch (err) {
+          showToast(err.message, "error");
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+
+      if (canWrite && new URLSearchParams(window.location.search).get("new") === "1") {
+        openModal();
+      }
+    }
+
+    function openModal(patient) {
+      editingId = patient ? patient.id : null;
+      document.getElementById("modalTitle").textContent = patient ? "Edit Patient" : "Register Patient";
+      document.getElementById("pf_full_name").value = patient ? patient.full_name : "";
+      document.getElementById("pf_dob").value = patient ? patient.date_of_birth || "" : "";
+      document.getElementById("pf_gender").value = patient ? patient.gender || "" : "";
+      document.getElementById("pf_phone").value = patient ? patient.phone || "" : "";
+      document.getElementById("pf_address").value = patient ? patient.address || "" : "";
+      document.getElementById("modalBackdrop").hidden = false;
+    }
+    function closeModal() {
+      document.getElementById("modalBackdrop").hidden = true;
+      document.getElementById("patientForm").reset();
+      editingId = null;
+    }
+
+    async function loadPatients(q) {
+      const body = document.getElementById("patientsBody");
+      body.innerHTML = `<tr><td colspan="7" class="loading-row">Loading…</td></tr>`;
+      try {
+        const url = q ? `/api/patients?q=${encodeURIComponent(q)}` : "/api/patients";
+        let patients = await apiFetch(url);
+
+        const gender = document.getElementById("genderFilter").value;
+        const from = document.getElementById("fromFilter").value;
+        const to = document.getElementById("toFilter").value;
+        if (gender) patients = patients.filter((p) => (p.gender || "").toLowerCase() === gender);
+        if (from) patients = patients.filter((p) => new Date(p.created_at) >= new Date(from));
+        if (to) patients = patients.filter((p) => new Date(p.created_at) <= new Date(to + "T23:59:59"));
+
+        document.getElementById("paginationInfo").textContent = `Showing 1 to ${patients.length} of ${patients.length} patients`;
+
+        if (!patients.length) {
+          body.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-title">No patients found</div></div></td></tr>`;
+          return;
+        }
+        const canWrite = ["admin", "receptionist"].includes(user.role);
+        body.innerHTML = patients
+          .map(
+            (p) => `
+          <tr data-id="${p.id}">
+            <td><a class="link-btn" href="/patient-record.html?id=${p.id}">${esc(p.patient_code)}</a></td>
+            <td><strong>${esc(p.full_name)}</strong></td>
+            <td>${esc(p.date_of_birth || "—")}</td>
+            <td>${esc(p.gender || "—")}</td>
+            <td>${esc(p.phone || "—")}</td>
+            <td>${new Date(p.created_at).toLocaleDateString()}</td>
+            <td class="col-action">
+              <div class="row-actions">
+                <a class="icon-btn view" href="/patient-record.html?id=${p.id}" title="View">
+                  <svg viewBox="0 0 24 24" fill="none"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/></svg>
+                </a>
+                ${
+                  canWrite
+                    ? `<button class="icon-btn edit" data-edit="${p.id}" title="Edit">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+                      </button>`
+                    : ""
+                }
+              </div>
+            </td>
+          </tr>`
+          )
+          .join("");
+        body.querySelectorAll("[data-edit]").forEach((btn) => {
+          btn.addEventListener("click", async (e) => {
+            e.stopPropagation();
+            const p = patients.find((x) => String(x.id) === btn.dataset.edit);
+            openModal(p);
+          });
+        });
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="7"><div class="error-state">${esc(err.message)}</div></td></tr>`;
+      }
+    }
+
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

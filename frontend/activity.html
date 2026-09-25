@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>System Activity — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+          <div class="shell-title">System Activity</div>
+          <div class="shell-subtitle">Recent important actions across the system</div>
+        </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content">
+        <div class="panel">
+          <div class="timeline" id="activityFeed"><div class="loading-row">Loading…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(["admin"]);
+    if (user) {
+      renderShellNav("activity");
+      loadActivity();
+    }
+
+    async function loadActivity() {
+      const el = document.getElementById("activityFeed");
+      try {
+        const logs = await apiFetch("/api/admin/activity?limit=100");
+        el.innerHTML = logs.length
+          ? logs
+              .map(
+                (l) => `
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="timeline-body">
+                <div>${esc(l.details || l.action)}</div>
+                <div class="timeline-meta">${esc(l.actor_name || "system")} · ${new Date(l.created_at).toLocaleString()}</div>
+              </div>
+            </div>`
+              )
+              .join("")
+          : `<div class="empty-state"><div class="empty-state-title">No activity recorded yet</div></div>`;
+      } catch (err) {
+        el.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+      }
+    }
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

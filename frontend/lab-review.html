@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Review Laboratory Report — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+          <div class="shell-title">Review Laboratory Report</div>
+          <div class="shell-subtitle" id="pageSubtitle">Correct any extraction errors, then verify.</div>
+        </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content" id="content">
+        <div class="loading-row">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(["admin", "lab_staff"]);
+    const reportId = new URLSearchParams(window.location.search).get("report");
+    let rows = [];
+    let reportDate = "";
+    let patientId = null;
+
+    if (user) {
+      renderShellNav("lab-reports");
+      if (!reportId) {
+        document.getElementById("content").innerHTML = `<div class="error-state">No report specified.</div>`;
+      } else {
+        loadReport();
+      }
+    }
+
+    async function loadReport() {
+      const content = document.getElementById("content");
+      try {
+        const report = await apiFetch(`/api/laboratory/reports/${reportId}`);
+        patientId = report.patient_id;
+        reportDate = report.report_date || "";
+        rows = report.results.map((r) => ({ ...r }));
+        document.getElementById("pageSubtitle").textContent = `${report.original_filename} · Status: ${report.status}`;
+
+        content.innerHTML = `
+          <div class="panel">
+            <div class="panel-head-row">
+              <div class="panel-head-left"><h2>Extracted Results</h2></div>
+              <span class="badge badge-${esc(report.status)}">${esc(report.status)}</span>
+            </div>
+
+            <div class="field" style="max-width:220px;margin-bottom:14px;">
+              <label>Report Date</label>
+              <input type="date" id="reportDateInput" value="${esc(reportDate)}" />
+            </div>
+
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr><th>Test Name</th><th>Result</th><th>Unit</th><th>Reference Range</th><th>Flag</th><th></th></tr>
+                </thead>
+                <tbody id="rowsBody"></tbody>
+              </table>
+            </div>
+            <button type="button" class="btn btn-outline btn-add-manual" id="addRowBtn" style="margin-top:12px;">+ Add Result Row</button>
+
+            <div class="modal-actions" style="margin-top:22px;">
+              <a class="btn btn-outline" href="/patient-record.html?id=${patientId}">Back to Patient</a>
+              <button type="button" class="btn btn-outline" id="saveReviewBtn">Save Review</button>
+              <button type="button" class="btn btn-primary" id="verifyBtn" ${report.status === "verified" ? "disabled" : ""}>
+                ${report.status === "verified" ? "Already Verified" : "Verify &amp; Save to Record"}
+              </button>
+            </div>
+          </div>`;
+
+        renderRows();
+        document.getElementById("addRowBtn").addEventListener("click", () => {
+          rows.push({ id: null, test_name: "", result_value: "", unit: "", reference_range: "", flag: "" });
+          renderRows();
+        });
+        document.getElementById("saveReviewBtn").addEventListener("click", () => saveReview(false));
+        document.getElementById("verifyBtn").addEventListener("click", () => saveReview(true));
+      } catch (err) {
+        content.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+      }
+    }
+
+    function renderRows() {
+      const body = document.getElementById("rowsBody");
+      if (!rows.length) {
+        body.innerHTML = `<tr class="empty-row"><td colspan="6">No results yet — add a row manually.</td></tr>`;
+        return;
+      }
+      body.innerHTML = rows
+        .map(
+          (r, i) => `
+        <tr data-idx="${i}">
+          <td><input class="duration-input" data-field="test_name" value="${escAttr(r.test_name)}" style="width:100%;" /></td>
+          <td><input class="duration-input" data-field="result_value" value="${escAttr(r.result_value || "")}" style="width:90px;" /></td>
+          <td><input class="duration-input" data-field="unit" value="${escAttr(r.unit || "")}" style="width:80px;" /></td>
+          <td><input class="duration-input" data-field="reference_range" value="${escAttr(r.reference_range || "")}" style="width:100px;" /></td>
+          <td>
+            <select class="freq-select" data-field="flag" style="width:110px;">
+              <option value="" ${!r.flag ? "selected" : ""}>—</option>
+              <option value="normal" ${r.flag === "normal" ? "selected" : ""}>Normal</option>
+              <option value="abnormal" ${r.flag === "abnormal" ? "selected" : ""}>Abnormal</option>
+            </select>
+          </td>
+          <td class="col-action"><button type="button" class="btn-icon danger" data-remove="${i}" title="Remove">&times;</button></td>
+        </tr>`
+        )
+        .join("");
+
+      body.querySelectorAll("input[data-field], select[data-field]").forEach((el) => {
+        el.addEventListener("input", (e) => {
+          const idx = Number(e.target.closest("tr").dataset.idx);
+          rows[idx][e.target.dataset.field] = e.target.value;
+        });
+      });
+      body.querySelectorAll("[data-remove]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          rows.splice(Number(btn.dataset.remove), 1);
+          renderRows();
+        });
+      });
+    }
+
+    async function saveReview(thenVerify) {
+      const invalid = rows.some((r) => !r.test_name || !r.test_name.trim());
+      if (invalid) {
+        showToast("Every row needs a test name.", "error");
+        return;
+      }
+      try {
+        await apiFetch(`/api/laboratory/reports/${reportId}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            report_date: document.getElementById("reportDateInput").value || null,
+            results: rows.map((r) => ({
+              id: r.id || undefined,
+              test_name: r.test_name,
+              result_value: r.result_value || null,
+              unit: r.unit || null,
+              reference_range: r.reference_range || null,
+              flag: r.flag || null,
+            })),
+          }),
+        });
+        showToast("Review saved.", "success");
+        if (thenVerify) {
+          await apiFetch(`/api/laboratory/reports/${reportId}/verify`, { method: "POST" });
+          showToast("Report verified and saved to patient record.", "success");
+          window.location.href = `/patient-record.html?id=${patientId}`;
+        } else {
+          loadReport();
+        }
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    }
+
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+    function escAttr(str) {
+      return String(str ?? "").replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html>

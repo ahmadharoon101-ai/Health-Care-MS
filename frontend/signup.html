@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign Up — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="auth-card" style="max-width: 480px;">
+      <div class="auth-brand">
+        <div class="auth-brand-mark">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M12 3 4 6.5v5.6C4 17 7.6 21 12 22c4.4-1 8-5 8-9.9V6.5L12 3Z" stroke="currentColor" stroke-width="1.6"/></svg>
+        </div>
+        <div>
+          <div class="auth-title">Create your account</div>
+          <div class="auth-subtitle">Doctor, Lab Staff, or Receptionist access</div>
+        </div>
+      </div>
+
+      <div class="auth-alert error" id="authError" hidden></div>
+
+      <form class="auth-form" id="signupForm">
+        <div class="form-grid">
+          <div class="field full">
+            <label for="full_name">Full name</label>
+            <input id="full_name" required />
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" required />
+          </div>
+          <div class="field">
+            <label for="phone">Phone number</label>
+            <input id="phone" />
+          </div>
+          <div class="field">
+            <label for="username">Username</label>
+            <input id="username" required minlength="3" />
+          </div>
+          <div class="field">
+            <label for="role">Role</label>
+            <select id="role" required>
+              <option value="doctor">Doctor</option>
+              <option value="lab_staff">Lab Staff</option>
+              <option value="receptionist">Receptionist</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" type="password" required minlength="8" />
+            <span class="field-hint">At least 8 characters.</span>
+          </div>
+          <div class="field">
+            <label for="confirm_password">Confirm password</label>
+            <input id="confirm_password" type="password" required minlength="8" />
+            <span class="field-error" id="matchError"></span>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="signupBtn" style="justify-content:center;">Create Account</button>
+      </form>
+
+      <div class="auth-footer">Already have an account? <a href="/login.html">Log in</a></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script>
+    if (Auth.isLoggedIn()) window.location.href = "/dashboard.html";
+
+    const errorEl = document.getElementById("authError");
+    const form = document.getElementById("signupForm");
+    const pw = document.getElementById("password");
+    const cpw = document.getElementById("confirm_password");
+    const matchError = document.getElementById("matchError");
+
+    cpw.addEventListener("input", () => {
+      matchError.textContent = cpw.value && cpw.value !== pw.value ? "Passwords do not match." : "";
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errorEl.hidden = true;
+
+      if (pw.value !== cpw.value) {
+        matchError.textContent = "Passwords do not match.";
+        return;
+      }
+
+      const btn = document.getElementById("signupBtn");
+      btn.disabled = true;
+      btn.textContent = "Creating account…";
+
+      try {
+        await apiFetch("/api/auth/register", {
+          method: "POST",
+          noAuth: true,
+          body: JSON.stringify({
+            full_name: document.getElementById("full_name").value.trim(),
+            email: document.getElementById("email").value.trim(),
+            phone: document.getElementById("phone").value.trim(),
+            username: document.getElementById("username").value.trim(),
+            password: pw.value,
+            confirm_password: cpw.value,
+            role: document.getElementById("role").value,
+          }),
+        });
+        window.location.href = "/login.html?registered=1";
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.hidden = false;
+        btn.disabled = false;
+        btn.textContent = "Create Account";
+      }
+    });
+  </script>
+</body>
+</html>

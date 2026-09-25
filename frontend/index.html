@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Prescription Entry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/shell.css">
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ================= HEADER ================= -->
+  <header class="app-header no-print">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-mark">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 15a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 0 0-7 0v5.5A3.5 3.5 0 0 0 12 15Z" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M6.5 11v.5a5.5 5.5 0 0 0 11 0V11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <path d="M12 17v3M9.5 20h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="17.5" cy="4.5" r="4" fill="currentColor" stroke="none"/>
+            <path d="M17.5 2.6v3.8M15.6 4.5h3.8" stroke="#0B3E91" stroke-width="1.1" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <div class="brand-text">
+          <span class="brand-title">VOICE PRESCRIPTION</span>
+          <span class="brand-subtitle">Clinical Voice Entry &amp; Medicine Search</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= STATUS BAR ================= -->
+  <div class="status-bar no-print" id="statusBar">
+    <div class="status-item status-backend">
+      <span class="status-icon-badge" id="backendIconBadge">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5 9.5 17 19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <div class="status-text">
+        <span class="status-title" id="backendTitle">Checking backend&hellip;</span>
+        <span class="status-sub" id="backendSub">Connecting to server</span>
+      </div>
+    </div>
+    <div class="status-item">
+      <span class="status-icon-mini">
+        <svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="5.5" rx="7.5" ry="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 5.5V12c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5V5.5" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 12v6.5c0 1.4 3.4 2.5 7.5 2.5s7.5-1.1 7.5-2.5V12" stroke="currentColor" stroke-width="1.7"/></svg>
+      </span>
+      <div class="status-text">
+        <span class="status-title">Database</span>
+        <span class="status-sub" id="dbStatus">Checking&hellip;</span>
+      </div>
+    </div>
+    <div class="status-item">
+      <span class="status-icon-mini">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M6.5 17a4 4 0 0 1-.5-7.97A5.5 5.5 0 0 1 16.9 8.05 4.25 4.25 0 0 1 16.5 17h-10Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+      </span>
+      <div class="status-text">
+        <span class="status-title">API Status</span>
+        <span class="status-sub" id="apiStatus">Checking&hellip;</span>
+      </div>
+    </div>
+    <div class="status-item">
+      <span class="status-icon-mini">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <div class="status-text">
+        <span class="status-title">Response Time</span>
+        <span class="status-sub" id="responseTime">&mdash;</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PATIENT CONTEXT BANNER ================= -->
+  <div class="app-main no-print" style="padding-top:14px;">
+    <div class="panel" id="patientBanner" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <span id="patientBannerText">Loading patient…</span>
+      <div style="display:flex;gap:10px;">
+        <a class="btn btn-outline btn-small" href="/patients.html">Change Patient</a>
+        <a class="btn btn-outline btn-small" href="/dashboard.html">Dashboard</a>
+      </div>
+    </div>
+  </div>
+
+  <main class="app-main">
+
+    <!-- ================= VOICE ENTRY ================= -->
+    <section class="panel voice-panel no-print" aria-labelledby="voiceHeading">
+      <div class="panel-head">
+        <span class="step-badge">1</span>
+        <h2 id="voiceHeading">VOICE TO TEXT <span class="panel-head-note">(Auto Search)</span></h2>
+      </div>
+
+      <div class="voice-grid">
+        <div class="voice-controls">
+          <button id="micButton" class="mic-button" aria-pressed="false">
+            <span class="mic-ring"></span>
+            <svg class="mic-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 15a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 0 0-7 0v5.5A3.5 3.5 0 0 0 12 15Z" stroke="currentColor" stroke-width="1.7"/>
+              <path d="M6.5 11v.5a5.5 5.5 0 0 0 11 0V11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+              <path d="M12 17v3M9.5 20h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <span class="voice-hint" id="voiceHint">Click the microphone to start voice input</span>
+        </div>
+
+        <div class="recognized-panel">
+          <div class="recognized-panel-head">
+            <span class="recognized-label">Recognized Text <span class="recognized-label-note">(editable)</span></span>
+            <span class="live-badge" id="liveBadge" hidden>Live</span>
+          </div>
+          <div class="recognized-box">
+            <textarea class="recognized-text-input" id="recognizedText" rows="2" placeholder="Recognized speech will appear here — you can edit it before adding."></textarea>
+          </div>
+          <div class="recognized-actions no-print">
+            <button type="button" class="btn btn-primary btn-small" id="addRecognizedBtn" disabled>Search Medicine</button>
+          </div>
+          <div class="recognized-status">
+            <p class="detect-line" id="detectLine" hidden>
+              <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5 9.5 17 19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span id="detectText"></span>
+            </p>
+            <p class="searching-line" id="searchingLine" hidden>
+              <span class="spin-dot"></span>
+              <span>Searching medicine database&hellip;</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <p class="inline-error" id="voiceError" hidden></p>
+
+      <p class="voice-tip">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5.5M12 8v.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        Voice is converted to text only — review/edit it above, then press "Search Medicine" to find it in the database.
+      </p>
+    </section>
+
+    <!-- ================= SEARCH RESULTS ================= -->
+    <section class="panel" aria-labelledby="searchHeading">
+      <div class="panel-head panel-head-row">
+        <div class="panel-head-left">
+          <span class="step-badge">2</span>
+          <h2 id="searchHeading">SEARCH RESULTS <span class="panel-head-note">(From Database)</span></h2>
+        </div>
+        <form class="manual-search-form" id="searchForm">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m20 20-3.2-3.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input type="text" id="searchInput" placeholder="Search medicine manually&hellip;" autocomplete="off">
+        </form>
+      </div>
+
+      <p class="results-for" id="resultsFor" hidden>Showing results for: <strong id="resultsForTerm"></strong></p>
+
+      <div class="table-wrap">
+        <table class="data-table results-table" id="resultsTable">
+          <thead>
+            <tr>
+              <th class="col-idx">#</th>
+              <th>Medicine Name</th>
+              <th>Strength</th>
+              <th>Form</th>
+              <th class="col-match">Match % <span class="info-dot" title="Similarity between the spoken/typed text and the catalog name">i</span></th>
+              <th class="col-action">Action</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody">
+            <tr class="empty-row"><td colspan="6">Search results will appear here.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="results-footer" id="resultsFooter" hidden>
+        <span id="resultsCount"></span>
+        <button type="button" class="link-btn" id="viewMoreBtn" hidden>View more results &rarr;</button>
+      </div>
+    </section>
+
+    <!-- ================= PRESCRIPTION ================= -->
+    <section class="panel prescription-panel" aria-labelledby="rxHeading" id="prescriptionPanel">
+      <div class="panel-head panel-head-row no-print">
+        <div class="panel-head-left">
+          <span class="step-badge">3</span>
+          <h2 id="rxHeading">PRESCRIPTION</h2>
+        </div>
+        <button class="btn btn-clear-all" id="clearAllBtn">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 6.5h16M9 6.5V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v1.5M6.5 6.5 7.3 19a2 2 0 0 0 2 1.9h5.4a2 2 0 0 0 2-1.9l.8-12.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Clear All
+        </button>
+      </div>
+
+      <div class="print-only print-header">
+        <div class="print-brand">Voice Prescription</div>
+        <div class="print-meta"><span id="printDate"></span></div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table rx-table" id="prescriptionTable">
+          <thead>
+            <tr>
+              <th class="col-idx">#</th>
+              <th>Medicine</th>
+              <th>Strength</th>
+              <th>Frequency</th>
+              <th>Duration</th>
+              <th>Instructions</th>
+              <th class="col-action no-print">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="prescriptionBody">
+            <tr class="empty-row"><td colspan="7">No medicines added yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="print-only print-footer">
+        <div class="signature-line"><span>Doctor&rsquo;s signature</span></div>
+      </div>
+
+      <div class="add-manual-row no-print">
+        <button class="btn btn-outline btn-add-manual" id="addManualBtn">+ Add Medicine Manually</button>
+      </div>
+
+      <div class="rx-actions no-print">
+        <span class="rx-status" id="rxStatus"></span>
+      </div>
+    </section>
+
+    <!-- ================= BOTTOM ACTION BAR ================= -->
+    <div class="bottom-bar no-print">
+      <button class="bar-btn" id="saveBtn">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 4.5h11l3 3V19a.5.5 0 0 1-.5.5H5a.5.5 0 0 1-.5-.5V5a.5.5 0 0 1 .5-.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M7.5 4.5V9h7V4.5M7.5 14h9v5.5h-9z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <span>Save Prescription</span>
+      </button>
+      <button class="bar-btn" id="printBtn">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M7 8.5V4.5h10v4" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="15" height="7" rx="1" stroke="currentColor" stroke-width="1.7"/><path d="M7 14.5h10v5H7z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <span>Print Prescription</span>
+      </button>
+      <button class="bar-btn" id="pdfBtn">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M7 3.5h7l4 4V19a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M14 3.5V8h4" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>
+        <span>Download PDF</span>
+      </button>
+    </div>
+
+  </main>
+</div>
+
+<!-- ================= MANUAL / EDIT MODAL ================= -->
+<div class="modal-backdrop no-print" id="modalBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-head">
+      <h3 id="modalTitle">Add medicine manually</h3>
+      <button class="modal-close" id="modalClose" aria-label="Close">&times;</button>
+    </div>
+    <form id="medicineForm" class="modal-form">
+      <input type="hidden" id="formItemId">
+
+      <label>
+        Medicine name
+        <input type="text" id="formMedicineName" required>
+      </label>
+      <label>
+        Dosage / Strength
+        <input type="text" id="formStrength" placeholder="e.g. 500 mg">
+      </label>
+      <label>
+        Frequency
+        <input type="text" id="formFrequency" placeholder="e.g. Twice daily">
+      </label>
+      <label>
+        Duration
+        <input type="text" id="formDuration" placeholder="e.g. 5 days">
+      </label>
+      <label>
+        Instructions
+        <input type="text" id="formInstructions" placeholder="e.g. After food">
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" id="modalCancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="modalSubmit">Add to prescription</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= TOASTS ================= -->
+<div class="toast-stack no-print" id="toastStack" aria-live="polite"></div>
+
+<script src="js/api.js"></script>
+<script>
+  // Voice Prescription is a Doctor tool (Admin may also access for support).
+  // Every save is linked to a specific Patient Record, per the required
+  // Module 3 workflow: Select Patient -> Voice Prescription -> Review ->
+  // Confirm -> Save to Patient Record.
+  const currentUser = Auth.guard(["doctor", "admin"]);
+  window.currentPatientId = currentUser ? new URLSearchParams(window.location.search).get("patient") : null;
+
+  async function initPatientBanner() {
+    const textEl = document.getElementById("patientBannerText");
+    if (!window.currentPatientId) {
+      textEl.innerHTML = `No patient selected. <a class="link-btn" href="/patients.html">Choose a patient</a> before saving a prescription.`;
+      return;
+    }
+    try {
+      const patient = await apiFetch(`/api/patients/${window.currentPatientId}`);
+      window.currentPatientName = patient.full_name;
+      textEl.innerHTML = `Prescribing for <strong>${escapeHtmlSafe(patient.full_name)}</strong> (${escapeHtmlSafe(patient.patient_code)})`;
+    } catch (err) {
+      textEl.innerHTML = `<span style="color:var(--danger);">${escapeHtmlSafe(err.message)}</span>`;
+      window.currentPatientId = null;
+    }
+  }
+  if (currentUser) initPatientBanner();
+</script>
+<script src="js/vendor/jspdf.umd.min.js"></script>
+<script src="js/websocket.js"></script>
+<script src="js/prescription.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

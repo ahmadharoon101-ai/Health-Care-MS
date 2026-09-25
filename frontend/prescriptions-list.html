@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Prescriptions — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+          <div class="shell-title">Prescriptions</div>
+          <div class="shell-subtitle" id="pageSubtitle">Saved, doctor-confirmed prescriptions</div>
+        </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content">
+        <div class="panel">
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Patient</th><th>Doctor</th><th>Summary</th><th>Date</th></tr></thead>
+              <tbody id="rxBody"><tr><td colspan="4" class="loading-row">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(["admin", "doctor"]);
+    if (user) {
+      renderShellNav("prescriptions-list");
+      loadPrescriptions();
+    }
+
+    async function loadPrescriptions() {
+      const body = document.getElementById("rxBody");
+      try {
+        const [prescriptions, patients] = await Promise.all([
+          apiFetch("/api/prescriptions"),
+          apiFetch("/api/patients"),
+        ]);
+        const patientMap = Object.fromEntries(patients.map((p) => [p.id, p]));
+
+        if (!prescriptions.length) {
+          body.innerHTML = `<tr><td colspan="4"><div class="empty-state"><div class="empty-state-title">No prescriptions saved yet</div></div></td></tr>`;
+          return;
+        }
+        body.innerHTML = prescriptions
+          .map((rx) => {
+            const patient = patientMap[rx.patient_id];
+            const summary =
+              rx.items && rx.items.length
+                ? rx.items.map((i) => i.medicine_name).filter(Boolean).join(", ")
+                : rx.prescription_text || "—";
+            return `<tr class="clickable-row" style="cursor:pointer;" data-patient="${rx.patient_id}">
+              <td><strong>${esc(patient ? patient.full_name : "Unknown")}</strong></td>
+              <td>${esc(rx.doctor_name || "—")}</td>
+              <td>${esc(summary)}</td>
+              <td>${new Date(rx.created_at).toLocaleString()}</td>
+            </tr>`;
+          })
+          .join("");
+        body.querySelectorAll("[data-patient]").forEach((row) => {
+          row.addEventListener("click", () => (window.location.href = `/patient-record.html?id=${row.dataset.patient}`));
+        });
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="4"><div class="error-state">${esc(err.message)}</div></td></tr>`;
+      }
+    }
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

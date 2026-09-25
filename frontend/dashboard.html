@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+            <div class="shell-title" id="pageTitle">Dashboard</div>
+            <div class="shell-subtitle" id="pageSubtitle">Overview</div>
+          </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content" id="content">
+        <div class="loading-row">Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(null); // any logged-in role
+    if (user) {
+      renderShellNav("dashboard");
+      document.getElementById("pageSubtitle").textContent = `Welcome back, ${user.full_name}.`;
+
+      if (user.role === "admin") loadAdminDashboard();
+      else loadRoleDashboard(user);
+    }
+
+    async function loadAdminDashboard() {
+      const content = document.getElementById("content");
+      try {
+        const data = await apiFetch("/api/admin/dashboard");
+        const s = data.stats;
+        content.innerHTML = `
+          <div class="stat-grid">
+            ${statCard("Total Users", s.total_users, "users")}
+            ${statCard("Doctors", s.total_doctors, "voice")}
+            ${statCard("Lab Staff", s.total_lab_staff, "lab")}
+            ${statCard("Receptionists", s.total_receptionists, "register")}
+            ${statCard("Total Patients", s.total_patients, "patients")}
+            ${statCard("Lab Reports", s.total_lab_reports, "lab")}
+            ${statCard("Prescriptions", s.total_prescriptions, "prescriptions")}
+            ${statCard("Pending Approvals", s.pending_approvals, "activity")}
+          </div>
+          <div class="two-col">
+            <div class="panel">
+              <div class="panel-head"><h2>Recent Activity</h2></div>
+              <div class="timeline" id="recentActivity"><div class="loading-row">Loading…</div></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h2>Recent Users</h2></div>
+              ${renderList(
+                data.recent_users,
+                (u) => `<strong>${esc(u.full_name)}</strong> — ${esc(u.role)} <span class="badge badge-${esc(u.status)}">${esc(u.status)}</span>`
+              )}
+              <div class="panel-head" style="margin-top:20px;"><h2>Recent Patients</h2></div>
+              ${renderList(data.recent_patients, (p) => `<strong>${esc(p.full_name)}</strong> — ${esc(p.patient_code)}`)}
+            </div>
+          </div>`;
+
+        const activityEl = document.getElementById("recentActivity");
+        try {
+          const logs = await apiFetch("/api/admin/activity?limit=10");
+          activityEl.innerHTML = logs.length
+            ? logs
+                .map(
+                  (l) => `
+              <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-body">
+                  <div>${esc(l.details || l.action)}</div>
+                  <div class="timeline-meta">${esc(l.actor_name || "")} · ${new Date(l.created_at).toLocaleString()}</div>
+                </div>
+              </div>`
+                )
+                .join("")
+            : `<div class="empty-state"><div class="empty-state-title">No activity yet</div></div>`;
+        } catch (err) {
+          activityEl.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+        }
+      } catch (err) {
+        content.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+      }
+    }
+
+    async function loadRoleDashboard(user) {
+      const content = document.getElementById("content");
+      const cardsByRole = {
+        doctor: [
+          { href: "/patients.html", title: "Search Patients", desc: "Find a patient and open their record.", icon: "patients" },
+          { href: "/index.html", title: "Voice Prescription", desc: "Dictate and save a new prescription.", icon: "voice" },
+          { href: "/lab-reports.html", title: "Laboratory Reports", desc: "Review verified lab results.", icon: "lab" },
+          { href: "/prescriptions-list.html", title: "Prescriptions", desc: "View prescriptions you've written.", icon: "prescriptions" },
+        ],
+        lab_staff: [
+          { href: "/patients.html", title: "Select Patient", desc: "Find the patient for a new report.", icon: "patients" },
+          { href: "/lab-upload.html", title: "Upload Laboratory Report", desc: "Upload a PDF or image report for AI extraction.", icon: "upload" },
+          { href: "/lab-reports.html", title: "Laboratory Reports", desc: "Review, correct, and verify results.", icon: "lab" },
+        ],
+        receptionist: [
+          { href: "/patients.html?new=1", title: "Register Patient", desc: "Add a new patient to the system.", icon: "register" },
+          { href: "/patients.html", title: "Search Patients", desc: "Find and update patient details.", icon: "patients" },
+        ],
+      };
+      const cards = cardsByRole[user.role] || [];
+
+      let countsHtml = "";
+      try {
+        const patients = await apiFetch("/api/patients");
+        countsHtml = `<div class="stat-grid">${statCard("Total Patients", patients.length, "patients", "Registered patients")}</div>`;
+      } catch {
+        /* non-fatal */
+      }
+
+      const iconVariants = ["", "icon-green", "icon-purple"];
+      content.innerHTML = `
+        ${countsHtml}
+        <div class="section-title">Quick Actions</div>
+        <div class="quick-actions">
+          ${cards
+            .map(
+              (c, i) => `
+            <a class="quick-action-card" href="${c.href}">
+              <div class="quick-action-icon ${iconVariants[i % iconVariants.length]}">${NAV_ICONS[c.icon] || ""}</div>
+              <div class="quick-action-body">
+                <div class="quick-action-title">${c.title}</div>
+                <div class="quick-action-desc">${c.desc}</div>
+              </div>
+              <div class="quick-action-arrow"><svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14m-6-6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            </a>`
+            )
+            .join("")}
+        </div>
+        <div class="panel" style="margin-top:22px;">
+          <div class="panel-head-row">
+            <div class="panel-head-left"><h2 style="text-transform:none;letter-spacing:0;font-size:15px;color:var(--ink);">Recent Activity</h2></div>
+            <a class="link-btn" href="#">View all activity &rsaquo;</a>
+          </div>
+          <div class="empty-state" style="padding:20px 0;text-align:left;">
+            <div class="empty-state-title" style="font-size:13.5px;color:var(--ink-soft);font-weight:600;">No recent activity to show.</div>
+          </div>
+        </div>`;
+    }
+
+    function statCard(label, value, icon, sub) {
+      return `<div class="stat-card">
+        <div class="stat-card-icon">${NAV_ICONS[icon] || ""}</div>
+        <div class="stat-card-body">
+          <div class="stat-card-label">${label}</div>
+          <div class="stat-card-value">${value}</div>
+          ${sub ? `<div class="stat-card-sub">${sub}</div>` : ""}
+        </div>
+      </div>`;
+    }
+    function renderList(items, renderer) {
+      if (!items || !items.length) return `<div class="empty-state"><div class="empty-state-title">Nothing yet</div></div>`;
+      return `<div class="info-list">${items.map((i) => `<div class="info-row" style="display:block;">${renderer(i)}</div>`).join("")}</div>`;
+    }
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

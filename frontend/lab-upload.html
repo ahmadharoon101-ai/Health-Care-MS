@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Upload Laboratory Report — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+            <div class="shell-title">Upload Laboratory Report</div>
+            <div class="shell-breadcrumb">Home &gt; Upload Laboratory Report &gt; <span class="crumb-current">AI/OCR Extraction</span> &gt; Review &gt; Verify</div>
+          </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content">
+        <div class="upload-grid">
+
+          <div class="upload-card">
+            <div class="upload-card-head">
+              <div class="upload-step-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 21c.7-3.6 3.5-6 7-6s6.3 2.4 7 6M15 21c.4-2 1.6-4.7 5-4.7 1 0 1.8.2 2.5.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <h3>1. Select Patient</h3>
+            </div>
+            <div id="patientPanelBody">
+              <div class="upload-card-text">Loading…</div>
+            </div>
+          </div>
+
+          <div class="upload-card">
+            <div class="upload-card-head">
+              <div class="upload-step-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0 4 4m-4-4-4 4M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <h3>2. Upload Report</h3>
+            </div>
+            <form id="uploadForm" hidden style="flex:1;display:flex;">
+              <div class="dropzone" id="dropzone">
+                <div class="dropzone-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 15V6m0 0 3.5 3.5M12 6 8.5 9.5M6 18h12a3 3 0 0 0 .6-5.94A5 5 0 0 0 8.2 8.1 4 4 0 0 0 6 18Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="dropzone-title" id="fileNameLabel">Drag &amp; drop your file here</div>
+                <div class="dropzone-sub">or</div>
+                <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.webp,.tiff,.bmp" required style="display:none;" />
+                <button type="button" class="btn btn-primary" id="browseBtn">Browse Files</button>
+                <div class="dropzone-hint">Supported formats: PDF, JPG, PNG &nbsp;|&nbsp; Max size: 15MB</div>
+              </div>
+              <button type="submit" class="btn btn-primary" id="uploadBtn" style="margin-top:14px;width:100%;" hidden>Upload &amp; Run Extraction</button>
+            </form>
+            <div id="uploadDisabledNote" class="upload-card-text">Select a patient first to enable upload.</div>
+            <div id="uploadStatus"></div>
+          </div>
+
+          <div class="upload-card">
+            <div class="upload-card-head">
+              <div class="upload-step-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h9l5 5v13H6V3Zm9 0v5h5M9 12h6M9 16h6M9 8h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <h3>Upload Guidelines</h3>
+            </div>
+            <div class="guideline-list">
+              <div class="guideline-item"><svg viewBox="0 0 24 24" fill="none"><path d="m4 12 5 5L20 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Upload clear and readable reports</div>
+              <div class="guideline-item"><svg viewBox="0 0 24 24" fill="none"><path d="m4 12 5 5L20 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Supported formats: PDF, JPG, PNG</div>
+              <div class="guideline-item"><svg viewBox="0 0 24 24" fill="none"><path d="m4 12 5 5L20 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Maximum file size: 15MB</div>
+              <div class="guideline-item"><svg viewBox="0 0 24 24" fill="none"><path d="m4 12 5 5L20 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Ensure patient details are visible</div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="step-progress">
+          <div class="step-progress-item done" id="stepSelect"><div class="step-progress-dot">1</div><div class="step-progress-label">Select Patient</div></div>
+          <div class="step-progress-line"></div>
+          <div class="step-progress-item current" id="stepUpload"><div class="step-progress-dot">2</div><div class="step-progress-label">Upload Report</div></div>
+          <div class="step-progress-line"></div>
+          <div class="step-progress-item" id="stepExtract"><div class="step-progress-dot">3</div><div class="step-progress-label">AI/OCR Extraction</div></div>
+          <div class="step-progress-line"></div>
+          <div class="step-progress-item" id="stepReview"><div class="step-progress-dot">4</div><div class="step-progress-label">Review &amp; Verify</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(["admin", "lab_staff"]);
+    let selectedPatientId = new URLSearchParams(window.location.search).get("patient");
+
+    if (user) {
+      renderShellNav("upload");
+      document.getElementById("browseBtn").addEventListener("click", () => document.getElementById("fileInput").click());
+      document.getElementById("fileInput").addEventListener("change", (e) => {
+        const f = e.target.files[0];
+        if (f) document.getElementById("fileNameLabel").textContent = f.name;
+      });
+      const dz = document.getElementById("dropzone");
+      ["dragenter", "dragover"].forEach((evt) => dz.addEventListener(evt, (e) => { e.preventDefault(); dz.style.borderColor = "var(--accent)"; }));
+      ["dragleave", "drop"].forEach((evt) => dz.addEventListener(evt, (e) => { e.preventDefault(); dz.style.borderColor = "#C9D6EE"; }));
+      dz.addEventListener("drop", (e) => {
+        const f = e.dataTransfer.files[0];
+        if (f) {
+          document.getElementById("fileInput").files = e.dataTransfer.files;
+          document.getElementById("fileNameLabel").textContent = f.name;
+        }
+      });
+
+      if (selectedPatientId) {
+        showSelectedPatient(selectedPatientId);
+      } else {
+        renderPatientSearch();
+      }
+    }
+
+    function renderPatientSearch() {
+      document.getElementById("patientPanelBody").innerHTML = `
+        <div class="upload-card-text" style="margin-bottom:12px;">Search and select a patient to associate the laboratory report.</div>
+        <div class="search-input-wrap">
+          <svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="m21 21-4.3-4.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <input class="search-input" id="patientSearch" placeholder="Search patient by name or code…" />
+        </div>
+        <div id="patientSearchResults" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;"></div>`;
+      let timer;
+      document.getElementById("patientSearch").addEventListener("input", (e) => {
+        clearTimeout(timer);
+        timer = setTimeout(() => searchPatients(e.target.value), 250);
+      });
+    }
+
+    async function searchPatients(q) {
+      const resultsEl = document.getElementById("patientSearchResults");
+      if (!q) {
+        resultsEl.innerHTML = "";
+        return;
+      }
+      try {
+        const patients = await apiFetch(`/api/patients?q=${encodeURIComponent(q)}`);
+        resultsEl.innerHTML = patients
+          .slice(0, 8)
+          .map(
+            (p) => `<div class="quick-action-card" style="cursor:pointer;padding:10px 14px;box-shadow:none;" data-id="${p.id}">
+              <div class="quick-action-body"><strong>${esc(p.full_name)}</strong> <span class="field-hint">${esc(p.patient_code)}</span></div>
+            </div>`
+          )
+          .join("");
+        resultsEl.querySelectorAll("[data-id]").forEach((el) => {
+          el.addEventListener("click", () => {
+            selectedPatientId = el.dataset.id;
+            window.history.replaceState({}, "", `/lab-upload.html?patient=${selectedPatientId}`);
+            showSelectedPatient(selectedPatientId);
+          });
+        });
+      } catch (err) {
+        resultsEl.innerHTML = `<div class="error-state">${esc(err.message)}</div>`;
+      }
+    }
+
+    async function showSelectedPatient(id) {
+      try {
+        const p = await apiFetch(`/api/patients/${id}`);
+        document.getElementById("patientPanelBody").innerHTML = `
+          <div class="quick-action-card" style="box-shadow:none;">
+            <div class="quick-action-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7-1a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 21c.7-3.6 3.5-6 7-6s6.3 2.4 7 6M15 21c.4-2 1.6-4.7 5-4.7 1 0 1.8.2 2.5.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div class="quick-action-body">
+              <div class="quick-action-title">${esc(p.full_name)}</div>
+              <div class="quick-action-desc">${esc(p.patient_code)}</div>
+            </div>
+          </div>
+          <a class="link-btn" href="/lab-upload.html" style="display:inline-block;margin-top:10px;">Change patient</a>`;
+        document.getElementById("uploadForm").hidden = false;
+        document.getElementById("uploadBtn").hidden = false;
+        document.getElementById("uploadDisabledNote").hidden = true;
+      } catch (err) {
+        document.getElementById("patientPanelBody").innerHTML = `<span style="color:var(--danger);">${esc(err.message)}</span>`;
+      }
+    }
+
+    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById("fileInput");
+      const statusEl = document.getElementById("uploadStatus");
+      const btn = document.getElementById("uploadBtn");
+      if (!fileInput.files.length) return;
+
+      btn.disabled = true;
+      btn.textContent = "Uploading…";
+      statusEl.innerHTML = "";
+
+      try {
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+        const report = await apiFetch(`/api/laboratory/upload?patient_id=${selectedPatientId}`, {
+          method: "POST",
+          body: formData,
+        });
+
+        btn.textContent = "Running AI/OCR extraction…";
+        const extractResult = await apiFetch(`/api/laboratory/extract/${report.id}`, { method: "POST" });
+
+        showToast("Report uploaded and extraction complete.", "success");
+        if (extractResult.warning) {
+          statusEl.innerHTML = `<div class="auth-alert error" style="display:block;">${esc(extractResult.warning)} You can still add results manually on the review screen.</div>`;
+          setTimeout(() => (window.location.href = `/lab-review.html?report=${report.id}`), 1800);
+        } else {
+          window.location.href = `/lab-review.html?report=${report.id}`;
+        }
+      } catch (err) {
+        showToast(err.message, "error");
+        statusEl.innerHTML = `<div class="auth-alert error" style="display:block;">${esc(err.message)}</div>`;
+        btn.disabled = false;
+        btn.textContent = "Upload & Run Extraction";
+      }
+    });
+
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

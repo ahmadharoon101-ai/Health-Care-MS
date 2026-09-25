@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>User Management — Healthcare Management System</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/shell.css" />
+</head>
+<body>
+  <div class="shell">
+    <nav class="sidebar" id="appSidebar"></nav>
+    <div class="shell-main">
+      <div class="shell-topbar">
+        <div class="shell-topbar-left">
+          <button class="shell-menu-btn" id="shellMenuBtn"></button>
+          <div>
+          <div class="shell-title">User Management</div>
+          <div class="shell-subtitle">Approve, activate, and manage system accounts</div>
+        </div>
+        </div>
+        <div class="shell-user" id="shellUserChip"></div>
+      </div>
+      <div class="shell-content">
+        <div class="panel">
+          <div class="toolbar">
+            <input class="search-input" id="searchInput" placeholder="Search by name, email, or username…" />
+            <select id="roleFilter">
+              <option value="">All roles</option>
+              <option value="admin">Admin</option>
+              <option value="doctor">Doctor</option>
+              <option value="lab_staff">Lab Staff</option>
+              <option value="receptionist">Receptionist</option>
+            </select>
+            <button class="btn btn-primary" id="addUserBtn">+ Add User</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+              <tbody id="usersBody"><tr><td colspan="6" class="loading-row">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal">
+      <div class="modal-head"><h3>Add User</h3><button class="modal-close" id="modalClose">&times;</button></div>
+      <form class="modal-form" id="userForm">
+        <label>Full Name<input id="uf_full_name" required /></label>
+        <label>Email<input id="uf_email" type="email" required /></label>
+        <label>Phone<input id="uf_phone" /></label>
+        <label>Username<input id="uf_username" required minlength="3" /></label>
+        <label>Temporary Password<input id="uf_password" type="password" required minlength="8" /></label>
+        <label>Role
+          <select id="uf_role">
+            <option value="doctor">Doctor</option>
+            <option value="lab_staff">Lab Staff</option>
+            <option value="receptionist">Receptionist</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" id="modalCancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/nav.js"></script>
+  <script>
+    const user = Auth.guard(["admin"]);
+    if (user) {
+      renderShellNav("users");
+      loadUsers();
+
+      let t;
+      document.getElementById("searchInput").addEventListener("input", (e) => {
+        clearTimeout(t);
+        t = setTimeout(() => loadUsers(), 250);
+      });
+      document.getElementById("roleFilter").addEventListener("change", () => loadUsers());
+      document.getElementById("addUserBtn").addEventListener("click", () => (document.getElementById("modalBackdrop").hidden = false));
+      document.getElementById("modalClose").addEventListener("click", closeModal);
+      document.getElementById("modalCancel").addEventListener("click", closeModal);
+
+      document.getElementById("userForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        try {
+          await apiFetch("/api/users", {
+            method: "POST",
+            body: JSON.stringify({
+              full_name: document.getElementById("uf_full_name").value.trim(),
+              email: document.getElementById("uf_email").value.trim(),
+              phone: document.getElementById("uf_phone").value.trim() || null,
+              username: document.getElementById("uf_username").value.trim(),
+              password: document.getElementById("uf_password").value,
+              role: document.getElementById("uf_role").value,
+            }),
+          });
+          showToast("User created.", "success");
+          closeModal();
+          loadUsers();
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      });
+    }
+
+    function closeModal() {
+      document.getElementById("modalBackdrop").hidden = true;
+      document.getElementById("userForm").reset();
+    }
+
+    async function loadUsers() {
+      const body = document.getElementById("usersBody");
+      body.innerHTML = `<tr><td colspan="6" class="loading-row">Loading…</td></tr>`;
+      const q = document.getElementById("searchInput").value;
+      const role = document.getElementById("roleFilter").value;
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (role) params.set("role", role);
+
+      try {
+        const users = await apiFetch(`/api/users${params.toString() ? "?" + params.toString() : ""}`);
+        if (!users.length) {
+          body.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-title">No users found</div></div></td></tr>`;
+          return;
+        }
+        body.innerHTML = users
+          .map(
+            (u) => `
+          <tr>
+            <td><strong>${esc(u.full_name)}</strong></td>
+            <td>${esc(u.email)}</td>
+            <td><span class="badge badge-${esc(u.role)}">${esc(u.role.replace("_", " "))}</span></td>
+            <td><span class="badge badge-${esc(u.status)}">${esc(u.status)}</span></td>
+            <td>${new Date(u.created_at).toLocaleDateString()}</td>
+            <td class="col-action">
+              ${
+                u.status !== "active"
+                  ? `<button class="link-btn" data-action="activate" data-id="${u.id}">Activate</button>`
+                  : `<button class="link-btn" data-action="deactivate" data-id="${u.id}" style="color:var(--danger);">Deactivate</button>`
+              }
+            </td>
+          </tr>`
+          )
+          .join("");
+
+        body.querySelectorAll("[data-action]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const newStatus = btn.dataset.action === "activate" ? "active" : "inactive";
+            try {
+              await apiFetch(`/api/users/${btn.dataset.id}/status`, {
+                method: "PATCH",
+                body: JSON.stringify({ status: newStatus }),
+              });
+              showToast(`User ${newStatus}.`, "success");
+              loadUsers();
+            } catch (err) {
+              showToast(err.message, "error");
+            }
+          });
+        });
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="6"><div class="error-state">${esc(err.message)}</div></td></tr>`;
+      }
+    }
+
+    function esc(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
